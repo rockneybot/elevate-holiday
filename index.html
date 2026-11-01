@@ -224,6 +224,7 @@
       <form id="pf" method="POST" target="gf_sink"
             action="https://script.google.com/macros/s/AKfycbx0pJ1tRMzktwjxTdtnnfVON_h0jq2XYmS_uVuIGmAhV-HVqIXGH2j82blCPgttEOR9/exec" class="formcard">
         <input type="hidden" name="token" value="elevate-potluck-2026">
+        <input type="hidden" name="event" value="holiday-2026">
 
         <div class="field">
           <label class="fld" for="name">Your name</label>
@@ -325,16 +326,20 @@
   });
 
   // ---------- live list ----------
-  // Reads the responses tab directly, filtered to sign-ups made on/after EVENT_FROM,
-  // so this page shows only holiday entries while the relay keeps writing to the same sheet.
-  var SHEET_ID="1sobEUvL4_7mK_t6lAZEUrfACDem-NO8SB5MuGbPepR8", TAB="Form Responses 1", EVENT_FROM="2026-11-01 00:00:00", curScript=null;
+  // Reads the holiday sheet (first tab): Timestamp | Name | Bringing | Details.
+  var SHEET_ID="1dzffUqunrOpI4itOboux0R47JEptQ9HXSoOo6NMWdt4", curScript=null;
   var COLORS={"salads":"var(--green)","veggies":"var(--green)","protein":"var(--red)","carbs":"var(--orange)",
     "snacks":"var(--orange)","sweets":"var(--purple)","alcoholic beverages":"var(--blue)","non alcoholic beverages":"var(--blue)"};
   function esc(s){var d=document.createElement("div");d.textContent=s==null?"":String(s);return d.innerHTML;}
   function colorFor(b){var f=String(b||"").split(",")[0].trim().toLowerCase();return COLORS[f]||"var(--gray)";}
   window.__potluckCb=function(resp){
     try{
-      if(resp&&resp.status==="error"){showError();return;}
+      if(resp&&resp.status==="error"){
+        // a brand-new empty sheet has no columns yet -> that's just "no sign-ups"
+        var ers=JSON.stringify(resp.errors||[]);
+        if(/NO_COLUMN|invalid_query/i.test(ers)){render([]);return;}
+        showError();return;
+      }
       var rows=(resp&&resp.table&&resp.table.rows)||[];
       var data=rows.map(function(r){var c=r.c||[];function v(n){return c[n]&&c[n].v!=null?String(c[n].v).trim():"";}
         return {name:v(0),bringing:v(1),details:v(2)};})
@@ -358,9 +363,9 @@
   function showError(){document.getElementById("out").innerHTML='<div class="state"><b>Couldn’t load the list</b>Make sure the sheet is shared “Anyone with the link → Viewer,” then tap ↻ Refresh.</div>';}
   function load(){
     if(curScript&&curScript.parentNode)curScript.parentNode.removeChild(curScript);
-    var tq="select C,D,E where A >= datetime '"+EVENT_FROM+"' order by D, A";
+    var tq="select B,C,D where B is not null and B <> 'Name' order by C, A";
     var s=document.createElement("script");
-    s.src="https://docs.google.com/spreadsheets/d/"+SHEET_ID+"/gviz/tq?sheet="+encodeURIComponent(TAB)+"&tq="+encodeURIComponent(tq)+"&tqx=responseHandler:__potluckCb;out:json&_="+Date.now();
+    s.src="https://docs.google.com/spreadsheets/d/"+SHEET_ID+"/gviz/tq?tq="+encodeURIComponent(tq)+"&tqx=responseHandler:__potluckCb;out:json&_="+Date.now();
     s.onerror=showError;document.body.appendChild(s);curScript=s;
   }
   document.getElementById("refresh").onclick=load;
